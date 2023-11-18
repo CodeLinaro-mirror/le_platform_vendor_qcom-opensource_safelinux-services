@@ -1,0 +1,13 @@
+# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+[Unit]
+Description=Suspend DSPs
+Before=systemd-suspend.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/echo "Placeholder to suspend DSPs"
+
+[Install]
+RequiredBy=systemd-suspend.service
