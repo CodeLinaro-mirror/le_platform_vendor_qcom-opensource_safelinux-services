@@ -1,0 +1,19 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+[Unit]
+Description=Early Service Example
+
+# The following settings allow this service to start early in boot.
+Before=early-services.target
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExist=yes
+ExecStart=/usr/bin/early-service-example
+
+[Install]
+WantedBy=early-services.target
