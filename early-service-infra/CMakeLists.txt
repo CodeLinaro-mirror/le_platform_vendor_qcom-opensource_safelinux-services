@@ -7,7 +7,7 @@ include(GNUInstallDirs)
 find_package(PkgConfig)
 # Get systemd unitdir from systemd's pkg config file
 pkg_search_module(SYSTEMD REQUIRED "systemd")
-pkg_get_variable(SYSTEMD_SYSTEM_UNIT_DIR systemd "systemd_system_unit_dir")
+pkg_get_variable(SYSTEMD_SYSTEM_UNIT_DIR systemd "systemdsystemunitdir")
 
 option(EXAMPLE_SERVICE "Build an example service that runs before early-services.target" ON)
 
