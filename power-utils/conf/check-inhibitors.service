@@ -3,7 +3,7 @@
 
 [Unit]
 Description=fail if sleep delay inhibitor locks are held
-Before=systemd-suspend.service
+Before=sleep-bounds.target
 
 [Service]
 Type=oneshot
@@ -11,4 +11,4 @@ RemainAfterExit=yes
 ExecStart=/usr/bin/check-inhibitors
 
 [Install]
-RequiredBy=systemd-suspend.service
+RequiredBy=sleep.target
