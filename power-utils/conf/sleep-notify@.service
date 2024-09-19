@@ -1,0 +1,22 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+[Unit]
+Description=%i Sleep Notifier
+DefaultDependencies=no
+RefuseManualStart=yes
+
+After=sleep-bounds.target
+Before=sleep.target
+
+OnFailure=failure-resume.service
+Before=failure-resume.service
+
+[Service]
+NoNewPrivileges=yes
+Type=oneshot
+RemainAfterExit=yes
+# This is a hack added b/c older systemd version requires an ExecStart in this service file template
+ExecStart=echo "start %i"
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes

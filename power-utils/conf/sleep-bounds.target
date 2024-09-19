@@ -1,0 +1,8 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+[Unit]
+Description=Active during preparation for sleep and preparation for resume
+RefuseManualStart=yes
+StopWhenUnneeded=yes
+DefaultDependencies=no

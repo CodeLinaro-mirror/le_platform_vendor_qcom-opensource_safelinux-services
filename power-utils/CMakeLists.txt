@@ -6,22 +6,22 @@ project(power-utils)
 # See available variables at https://cmake.org/cmake/power-utils/lapower-utils/module/GNUInstallDirs.html
 include(GNUInstallDirs)
 
+include_directories(public)
+
 find_package(PkgConfig)
 # Get systemd unitdir from systemd's pkg config file
 pkg_search_module(SYSTEMD REQUIRED "systemd")
 pkg_search_module(LIBSYSTEMD REQUIRED "libsystemd")
 pkg_get_variable(SYSTEMD_SYSTEM_UNIT_DIR systemd "systemdsystemunitdir")
+pkg_get_variable(TMPFILES_DIR systemd "tmpfilesdir")
 
-set(SOURCE_DIR src)
-set(CONF_DIR conf)
+set(PMCLIENT_MAJOR_VERSION 0)
+set(PMCLIENT_MINOR_VERSION 0)
+set(PMCLIENT_PATCH_VERSION 1)
+set(PMCLIENT_FULL_VERSION "${PMCLIENT_MAJOR_VERSION}.${PMCLIENT_MINOR_VERSION}.${PMCLIENT_PATCH_VERSION}")
+configure_file(pm-client.pc.in ${CMAKE_CURRENT_BINARY_DIR}/pm-client.pc)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/pm-client.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 
-set(CHK_INHIB_EXEC check-inhibitors)
-set(CHK_INHIB_SOURCES ${SOURCE_DIR}/check-inhibitors.c)
-set(CHK_INHIB_SYSTEMD_UNIT ${CONF_DIR}/check-inhibitors.service)
-
-add_executable(${CHK_INHIB_EXEC} ${CHK_INHIB_SOURCES})
-target_link_libraries(${CHK_INHIB_EXEC} PRIVATE ${LIBSYSTEMD_LDFLAGS})
-target_compile_options(${CHK_INHIB_EXEC} PRIVATE ${LIBSYSTEMD_CFLAGS})
-
-install(FILES ${CHK_INHIB_SYSTEMD_UNIT} DESTINATION ${SYSTEMD_SYSTEM_UNIT_DIR})
-install(TARGETS ${CHK_INHIB_EXEC} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+add_subdirectory(public)
+add_subdirectory(src)
+add_subdirectory(conf)
