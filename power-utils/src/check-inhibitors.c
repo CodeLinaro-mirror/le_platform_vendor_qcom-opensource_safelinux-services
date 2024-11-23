@@ -1,5 +1,5 @@
-/* SPDX-License-Identifier: BSD-3-Clause-Clear
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+/* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 // This file has code copied from https://www.freedesktop.org/software/systemd/man/latest/sd_bus_message_enter_container.html# which is licensed as below:
@@ -127,11 +127,11 @@ int main(int argc, char **argv) {
 
     r = check_sleep_delay_inhibitors(bus_conn);
     if (r == 0) {
-        syslog(LOG_DEBUG, "No active sleep delay inhibitor locks. Suspend continuing.");
+        syslog(LOG_DEBUG, "No active sleep delay inhibitor locks. Sleep continuing.");
     }
 
     if (r > 0) {
-        syslog(LOG_EMERG, "%i active sleep delay inhibitor locks. Will cancel suspend.", r);
+        syslog(LOG_EMERG, "%i active sleep delay inhibitor locks. Will cancel sleep.", r);
     }
 
     return r;

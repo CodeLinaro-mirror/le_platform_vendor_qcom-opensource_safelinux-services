@@ -11,6 +11,7 @@ Before=sleep-drivers.target
 PartOf=sleep-drivers.target
 
 After=sleep-bounds.target
+Requires=sleep-bounds.target
 
 [Install]
 RequiredBy=sleep-drivers.target
