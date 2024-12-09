@@ -1,0 +1,17 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+[Unit]
+Description=Drivers are ready for sleep
+DefaultDependencies=no
+StopWhenUnneeded=yes
+RefuseManualStart=yes
+
+Before=sleep.target
+PartOf=sleep.target
+
+After=sleep-apps.target
+Requires=sleep-apps.target
+
+[Install]
+RequiredBy=sleep.target
