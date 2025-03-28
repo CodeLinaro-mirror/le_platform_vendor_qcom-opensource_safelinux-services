@@ -40,8 +40,8 @@ int main(int argc, char *argv[])
 	lrmc_t md = NULL;
 	lrmc_send_msg_t smsg;
 	lrmc_recv_resp_t rmsg;
-	char *deepSleep_msg = "{class: deep_sleep, res: 1}";
-	char *quickboot_msg = "{class: deep_sleep, res: 0}";
+	char deepSleep_msg[] = "{class: deep_sleep, res: 1}";
+	char quickboot_msg[] = "{class: deep_sleep, res: 0}";
 	struct pil_qmp_msg msg_in;
 
 	if (argc < 2 ) {
