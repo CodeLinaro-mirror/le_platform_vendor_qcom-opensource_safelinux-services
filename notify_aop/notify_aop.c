@@ -11,21 +11,9 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <errno.h>
+#include <pil_devctls.h>
 
-
-#define PIL_MQ_NAME "/pil_service_mq"
-#define MAX_AOP_MSG_LEN 96
-#define DCMD_AOP_QMP_SEND_MSG     0x16
-
-struct pil_qmp_msg {
-    uint32_t mcmd;
-    char     msg[MAX_AOP_MSG_LEN];
-    int      nbytes;
-};
-
-lrmc_send_msg_t smsg;
-lrmc_recv_resp_t rmsg;
-lrmc_t md = NULL;
+#define LRMC_CONNECTION_TIMEOUT 5
 
 size_t strlcpy(char *dst, const char *src, size_t size)
 {
@@ -49,31 +37,36 @@ size_t strlcpy(char *dst, const char *src, size_t size)
 
 int main(int argc, char *argv[])
 {
+	lrmc_t md = NULL;
+	lrmc_send_msg_t smsg;
+	lrmc_recv_resp_t rmsg;
+	char *deepSleep_msg = "{class: deep_sleep, res: 1}";
+	char *quickboot_msg = "{class: deep_sleep, res: 0}";
+	struct pil_qmp_msg msg_in;
+
 	if (argc < 2 ) {
 		fprintf(stderr, "should enter two argument\n");
 		exit(EXIT_FAILURE);
 	}
 
-	md = lrmc_connect(PIL_MQ_NAME, (void *)5, 0);
-	if (md ==  NULL) {
-		fprintf(stderr, "lrmc_connect failing");
-		exit(EXIT_FAILURE);
-	}
-
-	struct pil_qmp_msg msg_in;  // Check pil_qmp_msg struct in pil_devctl.h
 	memset(msg_in.msg, '\0', MAX_AOP_MSG_LEN);
 	msg_in.mcmd = DCMD_AOP_QMP_SEND_MSG;
 	if (!strcmp (argv[1], "enter")) {
-		strlcpy(msg_in.msg, "{class: deep_sleep, res: 1}", sizeof("{class: deep_sleep, res: 1}"));
-		msg_in.nbytes = sizeof("{class: deep_sleep, res: 1}");
+		strlcpy(msg_in.msg, deepSleep_msg, sizeof(deepSleep_msg));
+		msg_in.nbytes = sizeof(deepSleep_msg);
 	}
 	else if (!strcmp (argv[1], "exit")) {
-		strlcpy(msg_in.msg, "{class: deep_sleep, res: 0}", sizeof("{class: deep_sleep, res: 0}"));
-		msg_in.nbytes = sizeof("{class: deep_sleep, res: 0}");
+		strlcpy(msg_in.msg, quickboot_msg, sizeof(quickboot_msg));
+		msg_in.nbytes = sizeof(quickboot_msg);
 	}
-	else
-	{
-		lrmc_disconnect(md, 0);
+	else{
+		fprintf(stderr, "wrong APSS-AOP event\n");
+		exit(EXIT_FAILURE);
+	}
+
+	md = lrmc_connect(PIL_MQ_NAME, (void *)LRMC_CONNECTION_TIMEOUT, 0);
+	if (md ==  NULL) {
+		fprintf(stderr, "lrmc_connect failing");
 		exit(EXIT_FAILURE);
 	}
 
@@ -87,7 +80,7 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	fprintf(stderr, "send mesage successfully\n");
+	fprintf(stderr, "send DeepSleep:%s message successfully to AOP\n", argv[1]);
 	lrmc_disconnect(md, 0);
 
 	return 0;

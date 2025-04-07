@@ -42,7 +42,7 @@ int get_suspend_mode() {
 
 	if (fgets(buffer, sizeof(buffer), file) != NULL) {
 		if (strstr(buffer, "[s2idle]") != NULL) {
-			suspend_mode = PM_MODE_DS;
+			suspend_mode = PM_MODE_S2R;
 		} else if (strstr(buffer, "[deep]") != NULL) {
 			suspend_mode = PM_MODE_DS;
 		} else {
