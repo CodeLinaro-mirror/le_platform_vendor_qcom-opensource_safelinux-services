@@ -9,4 +9,4 @@ DefaultDependencies=no
 [Service]
 Type=oneshot
 ExecStart=systemctl stop sleep-bounds.target
-TimeoutStartSec=5.0s
+TimeoutStartSec=20.0s
