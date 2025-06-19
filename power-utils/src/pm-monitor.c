@@ -36,6 +36,8 @@ static void *monitor_pm_notifications(void *hdl)
 	FD_ZERO(&read_fds);
 	FD_SET(pm_hdl->listen_fd, &read_fds);
 
+	pthread_setname_np(pthread_self(), "pm_monitor");
+
 	while (1) {
 		fprintf(stderr, SD_INFO "waiting for pm notifications on %s\n", pm_hdl->pm_sock->sun_path);
 		temp_fds = read_fds;
