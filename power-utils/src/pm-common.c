@@ -23,6 +23,15 @@
 #define PM_SOCK_SUFFIX ".sock"
 
 int get_socket_path(const char *client_name, char *socket_path) {
+	size_t len;
+
+	len = strlen(PM_SOCK_DIR) + strlen(client_name) + strlen(PM_SOCK_SUFFIX);
+
+	if (len >= UNIX_PATH_MAX) {
+		fprintf(stderr, SD_ERR "Error: socket path too long. Max allowed: %d, current: %zu\n",
+			UNIX_PATH_MAX - 1, len);
+		return -EINVAL;
+	}
 	strlcpy(socket_path, PM_SOCK_DIR, UNIX_PATH_MAX);
 	strlcat(socket_path, client_name, UNIX_PATH_MAX);
 	strlcat(socket_path, PM_SOCK_SUFFIX, UNIX_PATH_MAX);
@@ -36,8 +45,8 @@ int get_suspend_mode() {
 
 	FILE *file = fopen("/sys/power/mem_sleep", "r");
 	if (file == NULL) {
-		perror("Error opening file");
-		return -ENODEV;
+		fprintf(stderr, SD_ERR "Error opening file\n");
+		return -EINVAL;
 	}
 
 	if (fgets(buffer, sizeof(buffer), file) != NULL) {
