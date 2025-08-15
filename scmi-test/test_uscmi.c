@@ -12,6 +12,8 @@
 #include <uapi/misc/vendor_uscmi.h>
 
 #define MAX_INPUT_SIZE  128
+#define DEV_PREFIX "/dev/"
+#define DEV_PREFIX_LEN (sizeof(DEV_PREFIX) - 1)
 
 struct uscmi_args {
     char dev_name[MAX_INPUT_SIZE];
@@ -33,6 +35,13 @@ int parse_inputs(struct uscmi_args *args)
     }
 
     dev_name[strcspn(dev_name, "\n")] = '\0'; // Remove newline character
+
+    // Validate device name length before any memory allocation
+    if (strlen(dev_name) > MAX_INPUT_SIZE - DEV_PREFIX_LEN - 1) {
+        fprintf(stderr, "Device name too long\n");
+        return -EINVAL;
+    }
+
     printf("Enter param_id: ");
 
     if (fgets(input, MAX_INPUT_SIZE, stdin) == NULL) {
@@ -67,9 +76,12 @@ int parse_inputs(struct uscmi_args *args)
     args->ioctl = atoi(input);
     args->msg.tx_size = strlen(buf);
     args->msg.msg = strdup(buf); // Allocate memory and copy buffer
-    size = strlen(dev_name) + strlen("/dev/") + 1;
-    strlcpy(args->dev_name, "/dev/", size);
-    strlcat(args->dev_name, dev_name, size);
+    if (args->msg.msg == NULL) {
+        fprintf(stderr, "strdup failed: insufficient memory\n");
+        return -ENOMEM;
+    }
+
+    snprintf(args->dev_name, MAX_INPUT_SIZE, "/dev/%s", dev_name);
     printf("dev_name : %s\n", args->dev_name);
     printf("param_id:%d tx_size:%d rx_size:%d buf:%s\n",
            args->msg.param_id, args->msg.tx_size,
@@ -124,6 +136,12 @@ int main(int argc, char *argv[])
             return -1;
 
         ret = do_vendor_operation(&args);
+
+        // Free allocated memory before next iteration or exit
+        if (args.msg.msg != NULL) {
+            free(args.msg.msg);
+            args.msg.msg = NULL;
+        }
 
         char cont[MAX_INPUT_SIZE];
         printf("Do you want to continue? (y/n): ");
