@@ -14,6 +14,8 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <errno.h>
+#include <poll.h>
+#include <stdbool.h>
 
 #include <systemd/sd-daemon.h>
 
@@ -25,53 +27,68 @@ static void *monitor_pm_notifications(void *hdl)
 {
 	pm_client_t pm_hdl = (pm_client_t) hdl;
 	struct pm_ops_s *pm_ops = pm_hdl->ops;
-
-	int nread, addrplen, activity, ret;
+	int activity, ret;
+	socklen_t addrplen;
 	int conn_fd;
 	struct pm_event pm_data;
-	fd_set read_fds, temp_fds;
-	struct sockaddr *addrp;
+	struct pollfd temp_fds[MAX_LISTEN_QUEUE];
+	struct sockaddr_un addrp;
 	addrplen = sizeof(addrp);
 
-	FD_ZERO(&read_fds);
-	FD_SET(pm_hdl->listen_fd, &read_fds);
+	memset(temp_fds,-1,sizeof(temp_fds));
+	temp_fds[0].fd = pm_hdl->listen_fd;
+	temp_fds[0].events = POLLIN;
 
 	pthread_setname_np(pthread_self(), "pm_monitor");
 
-	while (1) {
+	while (!pm_hdl->stop_thread) {
 		fprintf(stderr, SD_INFO "waiting for pm notifications on %s\n", pm_hdl->pm_sock->sun_path);
-		temp_fds = read_fds;
-		activity = select(FD_SETSIZE, &temp_fds , NULL , NULL , NULL);
-		if (activity < 0 && errno != EINTR) {
-			fprintf(stderr, SD_NOTICE "select failed\n");
-			continue;
+
+		activity = poll(temp_fds, MAX_LISTEN_QUEUE , -1);
+		if (activity < 0) {
+			if (errno == EINTR) {
+				fprintf(stderr, SD_NOTICE "poll interrupted by signal, retrying\n");
+				continue;
+			} else {
+				fprintf(stderr, SD_ERR "poll failed: %s\n", strerror(errno));
+				break;
+			}
 		}
 
-		if (FD_ISSET(pm_hdl->listen_fd, &temp_fds))
-		{
-			if (FD_ISSET(conn_fd, &temp_fds)) {
+		if(temp_fds[0].revents & POLLIN) {
+			conn_fd = accept(pm_hdl->listen_fd, &addrp, &addrplen);
+			if(conn_fd < 0)
 				continue;
+
+			int found_slot = -1;
+			for(int i = 1; i < MAX_LISTEN_QUEUE; i++) {
+				if(temp_fds[i].fd == -1) {
+					temp_fds[i].fd = conn_fd;
+					temp_fds[i].events = POLLIN;
+					found_slot = i;
+					break;
+				}
 			}
 
-			do {
-				conn_fd = accept(pm_hdl->listen_fd, (struct sockaddr *)&addrp, (socklen_t*)&addrplen);
-			} while (conn_fd < 0 && errno == EINTR);
-			if (conn_fd < 0) {
-				continue;
-			} else {
-				FD_SET(conn_fd, &read_fds);
-				continue;
+			if (found_slot == -1) {
+				fprintf(stderr, SD_WARNING "Max connections reached, closing new connection on fd %d\n", conn_fd);
+				close(conn_fd); // Close connection if no slot is available
 			}
-		} else if (FD_ISSET(conn_fd, &temp_fds)) {
-			ioctl(conn_fd, FIONREAD, &nread);
-			if (nread == 0) {
-				close(conn_fd);
-				FD_CLR(conn_fd, &read_fds);
-			} else {
-				ret = read(conn_fd, (unsigned char *)&pm_data, sizeof(pm_data));
-				if (ret < 0) {
+		}
+
+		for(int i = 1; i < MAX_LISTEN_QUEUE; i++)
+		{
+			if(temp_fds[i].fd == -1)
+				continue;
+			if(temp_fds[i].revents & POLLIN) {
+				ret = read(temp_fds[i].fd, (unsigned char *)&pm_data, sizeof(pm_data));
+				if (ret < 0) { //if client get disconnected
 					fprintf(stderr, SD_ERR "Error recieving suspend event\n");
-					send(conn_fd, NACK_RESPONSE, strlen(NACK_RESPONSE), 0);
+					send(temp_fds[i].fd, NACK_RESPONSE, strlen(NACK_RESPONSE), 0);
+					close(temp_fds[i].fd);
+					temp_fds[i].fd = -1;
+					temp_fds[i].revents = 0;
+					continue;
 				} else {
 					fprintf(stderr, SD_NOTICE "Received message: %s %d\n", pm_data.cmd, pm_data.mode);
 					if(!strcmp(pm_data.cmd, PM_ENTER_CMD)) {
@@ -91,15 +108,19 @@ static void *monitor_pm_notifications(void *hdl)
 
 				if (ret < 0) {
 					fprintf(stderr, SD_ERR "responding with NACK to message: %s %d\n", pm_data.cmd, pm_data.mode);
-					send(conn_fd, NACK_RESPONSE, strlen(NACK_RESPONSE), 0);
+					send(temp_fds[i].fd, NACK_RESPONSE, strlen(NACK_RESPONSE), 0);
 				}
 				else {
 					fprintf(stderr, SD_INFO "responding with ACK to message: %s %d\n", pm_data.cmd, pm_data.mode);
-					send(conn_fd, ACK_RESPONSE, strlen(ACK_RESPONSE), 0);
+					send(temp_fds[i].fd, ACK_RESPONSE, strlen(ACK_RESPONSE), 0);
 				}
+				close(temp_fds[i].fd);
+				temp_fds[i].fd = -1;
+				temp_fds[i].revents = 0;
 			}
 		}
 	}
+	return NULL;
 }
 
 static int setup_socket(const char *name, pm_client_t *hdl) {
@@ -107,7 +128,6 @@ static int setup_socket(const char *name, pm_client_t *hdl) {
 	int listen_fd;
 	int ret = 0;
 	int saved_errno;
-
 
 	(*hdl)->pm_sock = (struct sockaddr_un *) malloc(sizeof(struct sockaddr_un));
 	if (!(*hdl)->pm_sock) {
@@ -118,6 +138,7 @@ static int setup_socket(const char *name, pm_client_t *hdl) {
 	memset((*hdl)->pm_sock, 0, sizeof(struct sockaddr_un));
 
 	get_socket_path(name, (*hdl)->pm_sock->sun_path);
+
 	listen_fd = socket(PF_UNIX, fd_type, 0);
 	if (listen_fd < 0) {
 		saved_errno = errno;
@@ -158,7 +179,25 @@ unlink_close_listen_fd_and_ret:
 	unlink((*hdl)->pm_sock->sun_path);
 close_listen_fd_and_ret:
 	close(listen_fd);
+	free((*hdl)->pm_sock);
+	(*hdl)->pm_sock = NULL;
 	return -saved_errno;
+}
+
+static void pm_sock_cleanup(pm_client_t hdl) {
+	if(!hdl)
+		return;
+
+	if(hdl->listen_fd >= 0) // Check if listen_fd is valid
+		close(hdl->listen_fd);
+
+	if(hdl->pm_sock && hdl->pm_sock->sun_path) // Add null check for hdl->pm_sock
+		unlink(hdl->pm_sock->sun_path);
+
+	if(hdl->pm_sock)
+		free(hdl->pm_sock);
+
+	free(hdl);
 }
 
 int pm_register(const char *name, struct pm_ops_s *ops, void *ctxt, pm_client_t *hdl)
@@ -167,26 +206,31 @@ int pm_register(const char *name, struct pm_ops_s *ops, void *ctxt, pm_client_t 
 
 	if (!ops) {
 		fprintf(stderr, SD_CRIT "Error: pm_ops_s is NULL but should not be NULL\n");
-		return -ENODEV;
+		return -EINVAL;
 	}
 
 	if (!name) {
-		fprintf(stderr, SD_ERR "Error: name input is NULL");
-		return -ENODEV;
+		fprintf(stderr, SD_ERR "Error: name input is NULL\n");
+		return -EINVAL;
 	}
 
 	/* Create pm client handle */
 	*hdl = (pm_client_t) malloc(sizeof(struct _pm_client_s));
-	(*hdl)->ops = ops;
-	(*hdl)->ctxt = ctxt;
 	if (!(*hdl)) {
 		fprintf(stderr, SD_CRIT "Error: pm_client_t hdl malloc failed\n");
-		return -ENODEV;
+		return -EINVAL;
 	}
+	memset(*hdl, 0, sizeof(struct _pm_client_s)); // Initialize allocated memory
+
+	(*hdl)->ops = ops;
+	(*hdl)->ctxt = ctxt;
+	// (*hdl)->stop_thread is initialized to false by memset
 
 	ret = setup_socket(name, hdl);
 	if (ret < 0) {
 		fprintf(stderr, SD_ERR "Error setting up socket\n");
+		free(*hdl);
+		*hdl = NULL;
 		return ret;
 	}
 
@@ -196,11 +240,11 @@ int pm_register(const char *name, struct pm_ops_s *ops, void *ctxt, pm_client_t 
 		return -ENODEV;
 	}
 	*/
-
-	ret = pthread_create(&((*hdl)->monitor_thread), NULL, &monitor_pm_notifications, (void *) *hdl);
+	ret = pthread_create(&(*hdl)->monitor_thread, NULL, &monitor_pm_notifications, (void *) *hdl);
 	if (ret) {
 		fprintf(stderr, SD_CRIT "Error creating monitor thread ret=%d : %s\n", ret, strerror(errno));
-		return (0 - ret); // pthread_create returns a positive error number
+		pm_sock_cleanup(*hdl);
+		return (0 - ret);
 	}
 
 	fprintf(stderr, SD_INFO "Started thread to monitor notifications on %s\n", (*hdl)->pm_sock->sun_path);
@@ -216,7 +260,12 @@ int pm_deregister(pm_client_t hdl)
 		return -ENODEV;
 	}
 
-	/* free all resources from _pm_client_s struct that hdl points to */
-	/* clean up and unlink socket */
+	hdl->stop_thread = true;
+	//wake poll by shutting down the socket
+	shutdown(hdl->listen_fd, SHUT_RD);
+	pthread_join(hdl->monitor_thread, NULL);
+
+	pm_sock_cleanup(hdl);
+
 	return 0;
 }
