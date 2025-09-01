@@ -85,15 +85,15 @@ int pm_send_notif(char *name, char *pm_cmd, int mode)
 	recv(pm_notify_fd, (unsigned char *)buf, MAX_BUF_LEN, 0);
 	close(pm_notify_fd);
 
-	fprintf(stderr, SD_INFO "Received %s from client\n", buf);
+	fprintf(stderr, SD_INFO "Received %s from client-%s\n", buf,name);
 
 	if (!strcmp(ACK_RESPONSE, buf)) {
-		fprintf(stderr, SD_INFO "Received ACK from client\n");
+		fprintf(stderr, SD_INFO "Received ACK from client-%s\n",name);
 		return 0;
 	}
 
 	if (!strcmp(NACK_RESPONSE, buf)) {
-		fprintf(stderr, SD_CRIT "Received NACK from client\n");
+		fprintf(stderr, SD_CRIT "Received NACK from client-%s\n",name);
 		return -1;
 	}
 
