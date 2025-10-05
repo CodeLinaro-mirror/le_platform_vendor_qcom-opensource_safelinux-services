@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include <systemd/sd-daemon.h>
+#include "bootkpi/logging.h"
 
 #include "pm_client_lib.h"
 #include "pm-internal.h"
@@ -43,6 +44,8 @@ int pm_send_notif(char *name, char *pm_cmd, int mode)
 	int pm_notify_fd;
 	char buf[MAX_BUF_LEN] = {'\0'};
 	char buffer[256];
+	char pm_ops[PM_MAX_BUF_LEN] = {'\0'};
+	char suspend_resume[PM_MAX_BUF_LEN] = {'\0'};
 	static struct sockaddr_un pm_notify;
 	struct pm_event pm_data;
 
@@ -70,6 +73,7 @@ int pm_send_notif(char *name, char *pm_cmd, int mode)
 	get_socket_path(name, pm_notify.sun_path);
 	fprintf(stderr, SD_INFO "got socket path %s\n", pm_notify.sun_path);
 	pm_notify.sun_family = AF_UNIX;
+	pm_log_init();
 
 	if ((connect(pm_notify_fd, (struct sockaddr *)&pm_notify,
 				sizeof(pm_notify))) != 0) {
@@ -80,6 +84,17 @@ int pm_send_notif(char *name, char *pm_cmd, int mode)
 
 	fprintf(stderr, SD_INFO "sending pm_data.cmd %s, pm_data.mode %d\n", pm_data.cmd, pm_data.mode);
 
+	if (pm_data.mode == PM_MODE_DS)
+		strlcpy(pm_ops,"deepsleep" , PM_MAX_BUF_LEN);
+	else if (pm_data.mode == PM_MODE_S2R)
+		strlcpy(pm_ops,"str" , PM_MAX_BUF_LEN);
+
+	if (!strcmp(pm_cmd, PM_ENTER_CMD))
+		strlcpy(suspend_resume, "suspend" , PM_MAX_BUF_LEN);
+	else if (!strcmp(pm_cmd, PM_EXIT_CMD))
+		strlcpy(suspend_resume, "resume" , PM_MAX_BUF_LEN);
+
+	pm_log_line("start :%s :%s :%s", name, pm_ops , suspend_resume);
 	send(pm_notify_fd, (unsigned char *)&pm_data, sizeof(pm_data), 0);
 	fprintf(stderr, SD_INFO "sent pm_data.cmd %s, pm_data.mode %d\n", pm_data.cmd, pm_data.mode);
 	recv(pm_notify_fd, (unsigned char *)buf, MAX_BUF_LEN, 0);
@@ -89,6 +104,7 @@ int pm_send_notif(char *name, char *pm_cmd, int mode)
 
 	if (!strcmp(ACK_RESPONSE, buf)) {
 		fprintf(stderr, SD_INFO "Received ACK from client\n");
+		pm_log_line("end :%s :%s :%s", name, pm_ops , suspend_resume);
 		return 0;
 	}
 

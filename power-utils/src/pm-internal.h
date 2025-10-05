@@ -23,6 +23,8 @@
 #define UNIX_PATH_MAX 108
 #define PM_CMD_LEN 50
 
+#define PM_MAX_BUF_LEN		20
+
 #define IMPOSE_CMD "impose"
 #define PM_ENTER_CMD "pm-enter"
 #define PM_EXIT_CMD "pm-exit"
