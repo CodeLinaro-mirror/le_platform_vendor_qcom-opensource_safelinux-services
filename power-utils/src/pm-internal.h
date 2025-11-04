@@ -26,6 +26,7 @@
 #define PM_MAX_BUF_LEN		20
 
 #define IMPOSE_CMD "impose"
+#define IMPOSE_V2_CMD "impose_v2"
 #define PM_ENTER_CMD "pm-enter"
 #define PM_EXIT_CMD "pm-exit"
 #define ACK_RESPONSE "success"
@@ -44,6 +45,7 @@ struct _pm_client_s {
 struct pm_event {
 	char cmd[PM_CMD_LEN];
 	int mode; // can be used for suspend mode or impose level
+	int lpm_mode; // lpm mode used for impose_v2
 };
 
 int get_socket_path(const char *client_name, char *socket_path);

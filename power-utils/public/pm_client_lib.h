@@ -28,6 +28,7 @@ enum PM_MODE {
 *       pm_enter with mode of PM_MODE_DS means entering Deep Sleep mode
 *       pm_exit with mode of PM_MODE_S2R means exiting from Suspend 2 RAM mode
 * impose: set new "level" to be interpreted by the client
+* impose_v2: set new "level" to be interpreted by the client and pass custom "lpm_mode" to client
 *
 * callback return int value: client must return 0 if the callback is successful
 *                            client must return negative error code if callback fails
@@ -38,6 +39,7 @@ struct pm_ops_s {
 	int (*pm_enter)(void *ctxt, enum PM_MODE mode);
 	int (*pm_exit)(void *ctxt, enum PM_MODE mode);
 	int (*impose)(void *ctxt, int level);
+	int (*impose_v2)(void *ctxt, int level, int lpm_mode);
 };
 
 /* pm_register
