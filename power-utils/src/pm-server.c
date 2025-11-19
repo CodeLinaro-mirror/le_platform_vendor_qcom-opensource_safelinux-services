@@ -41,6 +41,7 @@ int pm_send_notif(char *name, char *pm_cmd, int mode)
 {
 	int fd_type = SOCK_STREAM | SOCK_CLOEXEC;
 	int pm_notify_fd;
+	int ret;
 	char buf[MAX_BUF_LEN] = {'\0'};
 	char buffer[256];
 	static struct sockaddr_un pm_notify;
@@ -71,8 +72,14 @@ int pm_send_notif(char *name, char *pm_cmd, int mode)
 	fprintf(stderr, SD_INFO "got socket path %s\n", pm_notify.sun_path);
 	pm_notify.sun_family = AF_UNIX;
 
-	if ((connect(pm_notify_fd, (struct sockaddr *)&pm_notify,
-				sizeof(pm_notify))) != 0) {
+	ret = connect(pm_notify_fd, (struct sockaddr *)&pm_notify,sizeof(pm_notify));
+	if ((ret < 0) && (errno == ENOENT)) {
+		fprintf(stderr, SD_INFO "%s socket is missing!\n",pm_notify.sun_path);
+		fprintf(stderr, SD_INFO "Returning SUCCESS to sleep-notify@%s.service\n",name);
+		close(pm_notify_fd);
+		return 0;
+	}
+	else if (ret != 0) {
 		fprintf(stderr, SD_ERR "Error connecting to fd =%d errno=%s socket=%s len=%ld\n", pm_notify_fd, strerror(errno), pm_notify.sun_path, strlen(pm_notify.sun_path));
 		close(pm_notify_fd);
 		return -ENODEV;
