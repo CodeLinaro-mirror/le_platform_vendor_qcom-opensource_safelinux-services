@@ -78,7 +78,6 @@ static int send_event(const char *name, const struct pm_event *pm_data)
 	int fd_type = SOCK_STREAM | SOCK_CLOEXEC;
 	int pm_notify_fd;
 	int ret;
-	double elapsed_sec;
 	char buf[MAX_BUF_LEN] = {'\0'};
 	char pm_ops[PM_MAX_BUF_LEN] = {'\0'};
 	char suspend_resume[PM_MAX_BUF_LEN] = {'\0'};
@@ -139,7 +138,7 @@ static int send_event(const char *name, const struct pm_event *pm_data)
 		fprintf(stderr, SD_INFO "Received ACK from client %s\n", name);
 
 		if  (!strcmp(pm_data->cmd, PM_ENTER_CMD) || !strcmp(pm_data->cmd, PM_EXIT_CMD)) {
-			pm_log_line("total_time %.6f seconds:%s :%s :%s", elapsed_sec, name, pm_ops , suspend_resume);
+			pm_log_line("total_time %.6f seconds:%s :%s :%s", elapsed, name, pm_ops , suspend_resume);
 			trace_log_write("%s :%s :%s :%.6f seconds", name, pm_ops , suspend_resume, elapsed);
 		}
 		trace_log_close();
