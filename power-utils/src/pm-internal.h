@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+/* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -28,13 +28,15 @@
 #define PM_EXIT_CMD "pm-exit"
 #define ACK_RESPONSE "success"
 #define NACK_RESPONSE "failed"
+#define MAX_LISTEN_QUEUE 100
 
 struct _pm_client_s {
-	pthread_t *monitor_thread;
+	pthread_t monitor_thread;
 	struct pm_ops_s *ops;
 	struct sockaddr_un *pm_sock;
 	int listen_fd;
 	void *ctxt; // inserted as arg into callback functions
+	volatile int stop_thread;
 };
 
 struct pm_event {
