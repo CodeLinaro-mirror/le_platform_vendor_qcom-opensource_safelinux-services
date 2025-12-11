@@ -37,6 +37,7 @@ struct _pm_client_s {
 	int listen_fd;
 	void *ctxt; // inserted as arg into callback functions
 	volatile int stop_thread;
+	int prev_suspend_stat_success_cnt;
 };
 
 struct pm_event {
