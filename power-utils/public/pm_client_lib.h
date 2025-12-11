@@ -38,6 +38,7 @@ struct pm_ops_s {
 	int (*pm_enter)(void *ctxt, enum PM_MODE mode);
 	int (*pm_exit)(void *ctxt, enum PM_MODE mode);
 	int (*impose)(void *ctxt, int level);
+	int (*pm_cancel)(void *ctxt, enum PM_MODE mode);
 };
 
 /* pm_register
