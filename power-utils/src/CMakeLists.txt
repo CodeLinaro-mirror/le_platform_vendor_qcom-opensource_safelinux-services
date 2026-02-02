@@ -7,6 +7,7 @@ install(TARGETS check-inhibitors RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_library(pm-client SHARED pm-monitor.c pm-common.c)
 target_link_libraries(pm-client PRIVATE ${GLIB_2_LDFLAGS})
+target_link_libraries(pm-client PRIVATE kiumd)
 target_compile_options(pm-client PRIVATE ${GLIB_2_CFLAGS})
 set_target_properties(pm-client PROPERTIES VERSION ${PM_FULL_VERSION} SOVERSION ${PM_MAJOR_VERSION})
 install(TARGETS pm-client LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
