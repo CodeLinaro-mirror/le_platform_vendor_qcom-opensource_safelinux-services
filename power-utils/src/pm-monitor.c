@@ -111,39 +111,41 @@ static void *monitor_pm_notifications(void *hdl)
 					temp_fds[i].fd = -1;
 					temp_fds[i].revents = 0;
 					continue;
-				} else {
-					fprintf(stderr, SD_NOTICE "Received message: %s %d\n", pm_data.cmd, pm_data.mode);
-					if(!strcmp(pm_data.cmd, PM_ENTER_CMD)) {
-						/* Update the prev success count here, this will be used to compare with current success count in pm_exit path */
-						read_sysfs_suspend_success_cnt(&pm_hdl->prev_suspend_stat_success_cnt);
-						ret = pm_ops->pm_enter(pm_hdl->ctxt, (enum PM_MODE) pm_data.mode);
-					}
-					else if(!strcmp(pm_data.cmd, PM_EXIT_CMD)) {
-						int cur_suspend_stat_success_cnt;
-						read_sysfs_suspend_success_cnt(&cur_suspend_stat_success_cnt);
+				}
+				fprintf(stderr, SD_NOTICE "Received message: %s %d %d\n", pm_data.cmd, pm_data.mode, pm_data.lpm_mode);
+				if(!strcmp(pm_data.cmd, PM_ENTER_CMD)) {
+					/* Update the prev success count here, this will be used to compare with current success count in pm_exit path */
+					read_sysfs_suspend_success_cnt(&pm_hdl->prev_suspend_stat_success_cnt);
+					ret = pm_ops->pm_enter(pm_hdl->ctxt, (enum PM_MODE) pm_data.mode);
+				}
+				else if(!strcmp(pm_data.cmd, PM_EXIT_CMD)) {
+					int cur_suspend_stat_success_cnt;
+					read_sysfs_suspend_success_cnt(&cur_suspend_stat_success_cnt);
 
-						/* Call pm_cancel if there is callback registered and this is rollback case else call always pm_exit */
-						if ((pm_ops->pm_cancel != NULL) && (cur_suspend_stat_success_cnt == pm_hdl->prev_suspend_stat_success_cnt)) {
-							ret = pm_ops->pm_cancel(pm_hdl->ctxt, (enum PM_MODE) pm_data.mode);
-						} else {
-							ret = pm_ops->pm_exit(pm_hdl->ctxt, (enum PM_MODE) pm_data.mode);
-						}
+					/* Call pm_cancel if there is callback registered and this is rollback case else call always pm_exit */
+					if ((pm_ops->pm_cancel != NULL) && (cur_suspend_stat_success_cnt == pm_hdl->prev_suspend_stat_success_cnt)) {
+						ret = pm_ops->pm_cancel(pm_hdl->ctxt, (enum PM_MODE) pm_data.mode);
+					} else {
+						ret = pm_ops->pm_exit(pm_hdl->ctxt, (enum PM_MODE) pm_data.mode);
 					}
-					else if(!strcmp(pm_data.cmd, IMPOSE_CMD)) {
-						ret = pm_ops->impose(pm_hdl->ctxt, pm_data.mode);
-					}
-					else {
-						fprintf(stderr, SD_ERR "Received invalid pm cmd %s\n", pm_data.cmd);
-						ret = -ENODEV;
-					}
+				}
+				else if(!strcmp(pm_data.cmd, IMPOSE_CMD)) {
+					ret = pm_ops->impose(pm_hdl->ctxt, pm_data.mode);
+				}
+				else if(!strcmp(pm_data.cmd, IMPOSE_V2_CMD)) {
+					ret = pm_ops->impose_v2(pm_hdl->ctxt, pm_data.mode, pm_data.lpm_mode);
+				}
+				else {
+					fprintf(stderr, SD_ERR "Received invalid pm cmd %s\n", pm_data.cmd);
+					ret = -ENODEV;
 				}
 
 				if (ret < 0) {
-					fprintf(stderr, SD_ERR "responding with NACK to message: %s %d\n", pm_data.cmd, pm_data.mode);
+					fprintf(stderr, SD_ERR "responding with NACK to message: %s %d %d\n", pm_data.cmd, pm_data.mode, pm_data.lpm_mode);
 					send(temp_fds[i].fd, NACK_RESPONSE, strlen(NACK_RESPONSE), 0);
 				}
 				else {
-					fprintf(stderr, SD_INFO "responding with ACK to message: %s %d\n", pm_data.cmd, pm_data.mode);
+					fprintf(stderr, SD_INFO "responding with ACK to message: %s %d %d\n", pm_data.cmd, pm_data.mode, pm_data.lpm_mode);
 					send(temp_fds[i].fd, ACK_RESPONSE, strlen(ACK_RESPONSE), 0);
 				}
 				close(temp_fds[i].fd);
