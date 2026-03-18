@@ -1,0 +1,5 @@
+usr/include/pm_client_lib.h
+usr/include/pm_server_lib.h
+usr/lib/*/libpm-client.so
+usr/lib/*/libpm-server.so
+usr/lib/*/pkgconfig/pm-client.pc

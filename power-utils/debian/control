@@ -1,0 +1,24 @@
+Source: power-utils
+Section: utils
+Priority: optional
+Maintainer: xubaoj <xubaoj@qti.qualcomm.com>
+Rules-Requires-Root: no
+Build-Depends: debhelper-compat (= 13), cmake, pkg-config, libglib2.0-dev, libsystemd-dev,systemd-dev, bootkpi-logging
+Standards-Version: 4.6.2
+Homepage: https://www.codelinaro.org/
+
+Package: power-utils
+Section: utils
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Userspace power utilities
+ Utilities to support userspace suspend and shutdown, including
+ systemd units and helper binaries.
+
+Package: power-utils-dev
+Section: libdevel
+Architecture: any
+Depends: power-utils (= ${binary:Version}), ${misc:Depends}
+Description: Development files for power-utils
+ Header files, libraries, and pkgconfig file for the power-utils
+ clients and server.

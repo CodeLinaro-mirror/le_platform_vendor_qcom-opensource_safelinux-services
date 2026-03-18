@@ -1,0 +1,8 @@
+usr/bin/check-inhibitors
+usr/bin/pm-notify
+usr/lib/systemd/system/*.service
+usr/lib/systemd/system/*.target
+usr/lib/systemd/system/sleep.target.d/30-qcom-override.conf
+usr/lib/tmpfiles-early.d/qcom_pm.conf
+usr/lib/*/libpm-client.so.*
+usr/lib/*/libpm-server.so.*
