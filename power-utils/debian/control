@@ -3,7 +3,7 @@ Section: utils
 Priority: optional
 Maintainer: xubaoj <xubaoj@qti.qualcomm.com>
 Rules-Requires-Root: no
-Build-Depends: debhelper-compat (= 13), cmake, pkg-config, libglib2.0-dev, libsystemd-dev,systemd-dev, bootkpi-logging
+Build-Depends: debhelper-compat (= 13), cmake, pkg-config, libglib2.0-dev, libsystemd-dev,systemd-dev, bootkpi-logging-dev
 Standards-Version: 4.6.2
 Homepage: https://www.codelinaro.org/
 
