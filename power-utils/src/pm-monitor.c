@@ -164,7 +164,7 @@ static void *monitor_pm_notifications(void *hdl)
 							}
 
 							base_reg = (uchar *)plat_vfio_map_reg(&pvfio, 0);
-							if (base_reg == MAP_FAILED){
+							if ((base_reg == NULL) || (base_reg == MAP_FAILED)) {
 								fprintf(stderr, SD_ERR "mmap Failed to address: %p\n", base_reg);
 								plat_vfio_device_deinit(&pvfio);
 								/* invoking pm_exit callback in case of failure */
@@ -176,9 +176,11 @@ static void *monitor_pm_notifications(void *hdl)
 							fprintf(stderr, SD_INFO "gearvm_ds_success: 0x%x!\n", gearvm_ds_success);
 							if (plat_vfio_unmap_reg(&pvfio, base_reg, 0) < 0) {
 								fprintf(stderr, SD_ERR "Failed to unmap VFIO register\n");
+								ret = -1;
 							}
 							if (plat_vfio_device_deinit(&pvfio) < 0) {
 								fprintf(stderr, SD_ERR "Failed to deinitialize VFIO device\n");
+								ret = -1;
 							}
 							if (gearvm_ds_success != 0) {
 								/* This is rollback from GearVM & hence pm_cancel will be invoked */
