@@ -3,6 +3,7 @@
 */
 
 #include <stdio.h>
+#include <stddef.h>
 #include <pthread.h>
 #include <signal.h>
 #include <string.h>
@@ -21,8 +22,17 @@
 
 #include "pm_client_lib.h"
 #include "pm-internal.h"
+#include "plat_vfio.h"
 
 #define SUSPEND_STAT_SUCCESS_PATH "/sys/power/suspend_stats/success"
+
+typedef struct {
+	uint64_t entry_time;
+	uint64_t exit_time;
+	uint32_t success;
+	uint32_t fail_cnt;
+	uint32_t success_cnt;
+} gearvm_ds_stats_struct;
 
 /* Read sysfs "/sys/power/suspend_stats/success" file */
 int read_sysfs_suspend_success_cnt(int *ptr_success_cnt)
@@ -44,6 +54,11 @@ int read_sysfs_suspend_success_cnt(int *ptr_success_cnt)
 	return 0;
 }
 
+static inline uint32_t read_reg32(volatile void* base, uint32_t offset)
+{
+    return *(volatile uint32_t *)((volatile uint8_t*)base + offset);
+}
+
 /* hdl: pm_client_t type */
 static void *monitor_pm_notifications(void *hdl)
 {
@@ -56,6 +71,12 @@ static void *monitor_pm_notifications(void *hdl)
 	struct pollfd temp_fds[MAX_LISTEN_QUEUE];
 	struct sockaddr_un addrp;
 	addrplen = sizeof(addrp);
+
+	struct plat_vfio pvfio;
+	volatile uchar *base_reg = NULL;
+	const char* dev_name = "d0057000.umd_qc_pm";
+	const char *expected_path = "/run/qcom_pm/ssctl-service.sock";
+	volatile uint32_t gearvm_ds_success;
 
 	memset(temp_fds,-1,sizeof(temp_fds));
 	temp_fds[0].fd = pm_hdl->listen_fd;
@@ -126,9 +147,47 @@ static void *monitor_pm_notifications(void *hdl)
 					if ((pm_ops->pm_cancel != NULL) && (cur_suspend_stat_success_cnt == pm_hdl->prev_suspend_stat_success_cnt)) {
 						ret = pm_ops->pm_cancel(pm_hdl->ctxt, (enum PM_MODE) pm_data.mode);
 					} else {
-						ret = pm_ops->pm_exit(pm_hdl->ctxt, (enum PM_MODE) pm_data.mode);
+						/* Only if PM client is ssctl-service, check if rollback is initiated from GearVM */
+						if ((pm_ops->pm_cancel != NULL) && (strcmp(pm_hdl->pm_sock->sun_path, expected_path) == 0)) {
+							fprintf(stderr, SD_INFO "pm_exit cmd received on %s socket\n", pm_hdl->pm_sock->sun_path);
+							/* suspend_stats success cnt incremented. Need to check GearVM suspend status now */
+							ret = plat_vfio_device_init(dev_name, &pvfio);
+							if (ret < 0) {
+								fprintf(stderr, SD_ERR "Failed to initialize umd_firmware_vm device with ret: %d\n", ret);
+								/* invoking pm_exit callback in case of failure */
+								ret = pm_ops->pm_exit(pm_hdl->ctxt, (enum PM_MODE) pm_data.mode);
+								goto close_temp_fd_and_ret;
+							}
+
+							base_reg = (uchar *)plat_vfio_map_reg(&pvfio, 0);
+							if (base_reg == MAP_FAILED){
+								fprintf(stderr, SD_ERR "mmap Failed to address: %p\n", base_reg);
+								plat_vfio_device_deinit(&pvfio);
+								/* invoking pm_exit callback in case of failure */
+								ret = pm_ops->pm_exit(pm_hdl->ctxt, (enum PM_MODE) pm_data.mode);
+								goto close_temp_fd_and_ret;
+							}
+
+							gearvm_ds_success = read_reg32(base_reg, offsetof(gearvm_ds_stats_struct, success));
+							fprintf(stderr, SD_INFO "gearvm_ds_success: 0x%x!\n", gearvm_ds_success);
+							if (plat_vfio_unmap_reg(&pvfio, base_reg, 0) < 0) {
+								fprintf(stderr, SD_ERR "Failed to unmap VFIO register\n");
+							}
+							if (plat_vfio_device_deinit(&pvfio) < 0) {
+								fprintf(stderr, SD_ERR "Failed to deinitialize VFIO device\n");
+							}
+							if (gearvm_ds_success != 0) {
+								/* This is rollback from GearVM & hence pm_cancel will be invoked */
+								ret = pm_ops->pm_cancel(pm_hdl->ctxt, (enum PM_MODE) pm_data.mode);
+							} else {
+								ret = pm_ops->pm_exit(pm_hdl->ctxt, (enum PM_MODE) pm_data.mode);
+							}
+						} else {
+							ret = pm_ops->pm_exit(pm_hdl->ctxt, (enum PM_MODE) pm_data.mode);
+						}
 					}
 				}
+
 				else if(!strcmp(pm_data.cmd, IMPOSE_CMD)) {
 					ret = pm_ops->impose(pm_hdl->ctxt, pm_data.mode);
 				}
@@ -140,6 +199,7 @@ static void *monitor_pm_notifications(void *hdl)
 					ret = -ENODEV;
 				}
 
+close_temp_fd_and_ret:
 				if (ret < 0) {
 					fprintf(stderr, SD_ERR "responding with NACK to message: %s %d %d\n", pm_data.cmd, pm_data.mode, pm_data.lpm_mode);
 					send(temp_fds[i].fd, NACK_RESPONSE, strlen(NACK_RESPONSE), 0);
