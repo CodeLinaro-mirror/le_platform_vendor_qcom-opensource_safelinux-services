@@ -160,7 +160,7 @@ static void *monitor_pm_notifications(void *hdl)
 							}
 
 							base_reg = (uchar *)plat_vfio_map_reg(&pvfio, 0);
-							if (base_reg == MAP_FAILED){
+							if ((base_reg == NULL) || (base_reg == MAP_FAILED)) {
 								fprintf(stderr, SD_ERR "mmap Failed to address: %p\n", base_reg);
 								plat_vfio_device_deinit(&pvfio);
 								/* invoking pm_exit callback in case of failure */
