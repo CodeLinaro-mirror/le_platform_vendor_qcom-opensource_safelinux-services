@@ -2,6 +2,9 @@
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
+#include <stdio.h>
+#include <signal.h>
+#include <string.h>
 #include<stdio.h>
 #include <lrmc.h>
 #include <string.h>
@@ -14,6 +17,37 @@
 #include <pil_devctls.h>
 
 #define LRMC_CONNECTION_TIMEOUT 5
+#define SUSPEND_MODE_MAX 108
+
+enum PM_MODE {
+	PM_MODE_DS = 1,     // Deep Sleep
+	PM_MODE_S2R,        // Suspend 2 RAM
+	PM_MODE_INVALID = 0xFFFFFFFF,    // Invalid
+};
+
+int get_suspend_mode() {
+        int suspend_mode = PM_MODE_INVALID;
+        char buffer[SUSPEND_MODE_MAX];
+
+        FILE *file = fopen("/sys/power/mem_sleep", "r");
+        if (file == NULL) {
+                fprintf(stderr, "Error opening file\n");
+                return -EINVAL;
+        }
+
+        if (fgets(buffer, sizeof(buffer), file) != NULL) {
+                if (strstr(buffer, "[s2idle]") != NULL) {
+                        suspend_mode = PM_MODE_S2R;
+                } else if (strstr(buffer, "[deep]") != NULL) {
+                        suspend_mode = PM_MODE_DS;
+                } else {
+                        fprintf(stderr, "Error: unknown suspend mode in /sys/power/mem_sleep\n");
+                }
+        }
+
+        fclose(file);
+        return suspend_mode;
+}
 
 size_t strlcpy(char *dst, const char *src, size_t size)
 {
@@ -43,6 +77,10 @@ int main(int argc, char *argv[])
 	char deepSleep_msg[] = "{class: deep_sleep, res: 1}";
 	char quickboot_msg[] = "{class: deep_sleep, res: 0}";
 	struct pil_qmp_msg msg_in;
+	int suspend_mode = get_suspend_mode();
+
+	if (suspend_mode != PM_MODE_DS)
+		return 0;
 
 	if (argc < 2 ) {
 		fprintf(stderr, "should enter two argument\n");
