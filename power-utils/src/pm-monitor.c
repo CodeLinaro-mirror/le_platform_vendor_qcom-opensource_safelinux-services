@@ -124,8 +124,25 @@ static void *monitor_pm_notifications(void *hdl)
 			if(temp_fds[i].fd == -1)
 				continue;
 			if(temp_fds[i].revents & POLLIN) {
-				ret = read(temp_fds[i].fd, (unsigned char *)&pm_data, sizeof(pm_data));
-				if (ret < 0) { //if client get disconnected
+				size_t total_read = 0;
+				bool read_failed = false;
+
+				while (total_read < sizeof(pm_data)) {
+					ret = read(temp_fds[i].fd, (unsigned char *)&pm_data + total_read, sizeof(pm_data) - total_read);
+					if (ret < 0) {
+						if (errno == EINTR)
+							continue;
+						read_failed = true;
+						break;
+					}
+					if (ret == 0) { //client disconnected before sending full message
+						read_failed = true;
+						break;
+					}
+					total_read += ret;
+				}
+
+				if (read_failed) { //if client get disconnected
 					fprintf(stderr, SD_ERR "Error recieving suspend event\n");
 					send(temp_fds[i].fd, NACK_RESPONSE, strlen(NACK_RESPONSE), 0);
 					close(temp_fds[i].fd);
@@ -133,7 +150,7 @@ static void *monitor_pm_notifications(void *hdl)
 					temp_fds[i].revents = 0;
 					continue;
 				}
-				fprintf(stderr, SD_NOTICE "Received message: %s %d %d\n", pm_data.cmd, pm_data.mode, pm_data.lpm_mode);
+				fprintf(stderr, SD_INFO "Received message: %s %d %d\n", pm_data.cmd, pm_data.mode, pm_data.lpm_mode);
 				if(!strcmp(pm_data.cmd, PM_ENTER_CMD)) {
 					/* Update the prev success count here, this will be used to compare with current success count in pm_exit path */
 					read_sysfs_suspend_success_cnt(&pm_hdl->prev_suspend_stat_success_cnt);
