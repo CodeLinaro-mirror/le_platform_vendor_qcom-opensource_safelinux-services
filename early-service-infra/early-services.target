@@ -3,7 +3,8 @@
 
 [Unit]
 Description=Early Services
-
+Wants=audio-umd.service awe-audio.service video-driver.service vidc-test-app.service qcx_server.service qcarcam_rvc.service kgsl@0.service kgsl@1.service systemd-modules-load.service
+After=audio-umd.service awe-audio.service video-driver.service vidc-test-app.service qcx_server.service qcarcam_rvc.service kgsl@0.service kgsl@1.service systemd-modules-load.service
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=shutdown.target

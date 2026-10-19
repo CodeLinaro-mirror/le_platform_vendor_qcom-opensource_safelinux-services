@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 	char oper[3];
 	int fd;
 
-	if (argc <2) {
+	if (argc < 2) {
 		print_usage();
 		return 0;
 	}
@@ -59,6 +59,16 @@ int main(int argc, char *argv[])
 			goto failure;
 		}
 	} else if (!strncmp(oper, "of", 2)) {
+		/*
+		 * Issue a power on before power off to ensure the per-client
+		 * refcount is non-zero before the off request. The driver
+		 * rejects an off vote when refcount is already 0.
+		 */
+		if (request_power_operation(fd, &request, SCMI_PWR_ON)) {
+			printf("Failed to power on before off\n");
+			ret = -EINVAL;
+			goto failure;
+		}
 		if (request_power_operation(fd, &request, SCMI_PWR_OFF)) {
 			printf("Failed to power off\n");
 			ret = -EINVAL;
@@ -73,7 +83,6 @@ int main(int argc, char *argv[])
 	printf("power is turned %s successfully\n", oper);
 
 	close(fd);
-
 	return 0;
 
 failure:
